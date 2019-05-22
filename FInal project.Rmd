@@ -1,0 +1,430 @@
+---
+title: "Final Project CMSC320"
+author: "Taru Rustagi"
+date: "May 20, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Studying the Data Science pipeline - Analyzing annual agricultural output in India and studying various factors that could affect the output
+
+##1.a Introduction - importance of agricultural analysis and data science in its analysis
+
+Agriculture is the basic source of food for all individuals. While many individuals rely on the agricultural sector just for a source of food and nutrition, many other rely heavily more on this sector as it porvides a source of income for many individuals. As a country, the agricultural sector of the country also provides millions of employment opportunities while contributing to the GDP of that country. And a successful agricultural sector provides greater food security, increased natioanl income and improved standards of living for that country. (https://www.agup.com/news/blog/main-blog/2017/07/06/why-agriculture-is-important) 
+
+The agricultural sector is the most important sector of the Indian Economy. It accounts for 17.4% of India's GDP. 
+
+![](C:/Users/Administrator/Desktop/CMSC320/GDP.jpg)
+
+Given that such a huge sector of the indian GDP is dependent on the agricultural sector, and since the majority of the working class works in the agricultural sector, it is important to understand the factors that affect the agricultural output and works towards increasing the output. And this can be done by comparing data and outputs we have had over the years, and using data science to not only see, visualize and learn about trends in output versus the different factors, but also to use linear models to predict the impact of those factors on the output. 
+
+
+##1.b Structure of project and datasets
+
+The aim of this project is to provide an informatory tutorial for the various steps in the data pipelining process in Data Science. These steps fall under the following topics
+
+- data curation - this involves finding various agricultural realted datasets for use in our project, or creating one as well.
+- parsing, and management - This step involves the cleaning up, parsing and making our dataset ready for analysis
+- Exploratory Data Analysis (EDA) - This step will allow us to create visualizations between various agricultural output trends and help us visualiza all the vairous possible relationships between agricultural outputs and other related factors
+- hypothesis testing  
+- Machine learning to provide analysis
+
+This project provides an analysis and visualization of agriculture in the country of India through various datasets merged together to make a consolidated dataset for our use throughout the tutorial. We have used the following datasets 
+
+1) Mean rainfall in the country of india from 1991 to 2015 https://data.gov.in/resources/all-india-area-weighted-monthly-seasonal-and-annual-rainfall-mm-1901-2015
+
+2) Average temperature per year from 1901 to 2017
+https://data.gov.in/resources/seasonal-and-annual-mean-temp-series-india-1901-2017
+
+3) Crop production per region from the year 1997
+https://data.gov.in/catalog/district-wise-season-wise-crop-production-statistics
+
+4) CPI (Consumer Price Index) for agricultural workers from the year 1995
+https://data.gov.in/resources/all-india-consumer-price-index-numbers-agricultural-labourers-1995-96-2014-15
+
+The Consumer Price Index (CPI) is a measure of the average change overtime in the prices paid by urban consumers for a market basket of consumer goods and services. More information about CPI can be found here - https://www.bls.gov/cpi/questions-and-answers.htm
+
+##2. Loading the Packages
+
+we load a range of packages that will allow us to use various functions in our project. 
+
+For this tutorial you will need to have R 3.5.0 or above. We use RStudio, but you can use any IDE you want.
+
+Packages are a collection of R functions, data and compiled code in a well defined format. More information about packages can be found here - https://www.statmethods.net/interface/packages.html
+
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(stringr)
+library(leaflet)
+library(ggplot2)
+library(broom)
+```
+
+##3. Obtaining our data - Data curation
+
+Obtaining the data is very important, as it involves identifying all available datasets that one can use for their project. It could consist of just one dataset, or multiple datasets that one can merge to create one huge dataset. This is where the data curation begins, as we obtain data that we will use throughout the project. One big aspect of data curation is the ability to recreate or reuse the code, and so for this project, I have included the links of the datasets. The CSV of those datasets can be downloaded and the path of the files on the local computer can replace the paths in the read_csv() - read_csv(#Path on your computer#)
+
+The read_csv() function takes the csv file and parses the rows and columns (entities and attributes in data science) to convert it to a dataframe (More Info - https://readr.tidyverse.org/reference/read_delim.html)
+
+Agricultural crops dataframe
+```{r, message = FALSE}
+crops <- read_csv("D:/apy.csv")
+crops
+```
+
+rainfall dataframe
+```{r, message = FALSE}
+rainfall <- read_csv("D:/rainfall_area-wt_India_1901-2015.csv" )
+rainfall
+```
+
+temperature dataframe
+```{r, message = FALSE}
+temp <- read_csv("D:/Mean_Temperature.csv" )
+temp
+```
+
+Consumer price index dataframe
+```{r, message = FALSE}
+cpi <- read_csv("D:/CPI.csv")
+cpi
+```
+
+We can see that we have all the data that we mentioned that we are going to use for analysis later. However, on inspecting the dataframes, we can see that we have various mismatching data types, we don't have uniform column names, and that the same attributes across tables have different formats and data type. We're gonna have to clean these up to use for our analysis later
+
+##4. Parsing, Management and Cleaning data
+
+Data cleansing refers to the process of updating or removing information that is incomplete, incorrect, improperly formatted, duplicate, irrelevant or missing. 
+
+Data cleansing is important as we want all our data to be consistent, so that our EDA and prediction modles are as accurate as possible. Furthermore, to consolidate our data, we need to ensure that our merging attribute or column is the same. 
+
+An analysis of our agricultural table shows that we have the agricultural produce split up by states for all the years. We first wanna consolidate those into the sum of agricultural produce for the year. 
+
+We first call group_by() that partitions the data based on the attribute. (https://www.rdocumentation.org/packages/dplyr/versions/0.7.8/topics/group_by)
+
+and then we call summarize() to create a summary (or addition of values, or other function called otherwise) to find the total amount of crops produced that year. However, we wanna ensure that we deal with the missing values, or else we will have errors in our calculation. This error is shown below 
+
+```{r}
+crops %>%
+  select(Crop_Year,Production)%>%
+  group_by(Crop_Year)%>%
+  summarize("crops produced" = sum(Production))
+
+```
+
+We can see that many of our calculated values have missing values. This occured as NA values can't be added. we can deal with them in 3 ways
+
+1) we can either substitute the NA values with the average of all values - Mean imputation
+https://www.iriseekhout.com/missing-data/missing-data-methods/imputation-methods/
+2) you can use linear regression and fit a linear model to predict the value, and 
+3) You can avoid those entities by using na.omit() or drop_na() - we will use na.omit() here
+
+```{r}
+Scrops <-crops %>%
+  select(Crop_Year,Production)%>%
+  group_by(Crop_Year)%>%
+  na.omit() %>%
+  summarize("crops produced" = sum(Production))
+
+Scrops
+```
+
+Now, we want to merge our other dataframes to this data frame. We want to merge it on the Crop_Year. However, we do not have a column named Crop_Year on our other dataframes, so we have to mutate our other tables to do so. We can rename our YEAR column in temp to Crop_year, but for our CPI table, we need to parse the first 4 numbers and then convert the datatype to double. We perform the mutations on the CPI table as shown below
+
+The renaming is done using the rename() function - https://www.rdocumentation.org/packages/plyr/versions/1.8.4/topics/rename
+
+The conversion of datatypes of the attribute was done using the as.double() function.
+
+
+
+```{r}
+Stemp <- temp %>% rename("Crop_Year" = YEAR, "Annual temp" = ANNUAL, "JAN_FEB_T" = `JAN-FEB`, "MAR-MAY_T" = `MAR-MAY`, "JUN-SEP_T" = `JUN-SEP`, "OCT-DEC_T" = `OCT-DEC`)
+Scpi <- cpi %>%
+  mutate("Crop_Year" = as.double(substr(Year, 0, 4))) %>%
+  group_by(Crop_Year) %>%
+  rename("CPI" = "Agricultural Labourers (Base: 1986-87=100) - General Index") %>%
+  select(Crop_Year, CPI)%>%
+  summarize("CPI_avg" = mean(CPI))
+
+Srain <- rainfall %>%
+  rename("Crop_Year" = YEAR, "Annual_rain" = ANNUAL)%>%
+  select(Crop_Year,Annual_rain)
+
+
+```
+
+Now, we merge all the tables to create a single table 
+```{r}
+data <- merge(Scrops, Scpi, by = "Crop_Year") 
+
+data <- merge(data,Srain, by = "Crop_Year")
+data <- merge(data, Stemp, by = "Crop_Year")
+data
+```
+
+
+Now, we have our table ready for EDA exploration 
+
+##5. EDA Exploration
+
+Now that we have a table with appropiate values for our analysis, we want to explore the opssible relationships between the agricultural output and and various factors such as temperature, rainfall and CPI on the agricultural output. More importantly, EDA helps us visualize the relationship, and determine what kind of rtelationship model fits best and learn more about the appropiate statistical and machine learning methods we can apply.
+
+We are first going to focus on the visualization of  variables against time using ggplot.
+https://ggplot2.tidyverse.org/reference/
+
+Our first plot will be a simple scatter plot using the geom_point() function. https://www.rdocumentation.org/packages/ggplot2/versions/3.1.1/topics/geom_point
+
+
+```{r}
+graph <- data %>% ggplot(aes(y = `crops produced`, x = Crop_Year)) + geom_point()
+graph
+```
+
+Thus, we can see that there is a linear trend between Crops produced and Crop_Year. However, we do now know much about the skew of the graph, the spread and the central trend line. 
+
+We can observe the trend line using the geom_line() function. HOwever, that would only connect our scatter points, and so we also use the geom_smooth() function using method = lm.
+https://ggplot2.tidyverse.org/reference/geom_smooth.html
+
+```{r}
+graph <- data %>% ggplot(aes(y = `crops produced`, x = Crop_Year)) + geom_point() + geom_line() + geom_smooth(method = lm)
+graph
+```
+
+Thus, we can see that there is a clear linear relationship between crops produced and the year. Most of our data lies in the shaded region, indicating only a few outliers. to determine the spread and the outliers, we can use a boxplot to visualize that. 
+https://towardsdatascience.com/understanding-boxplots-5e2df7bcbd51
+
+```{r}
+graph <- data %>% ggplot(aes(y = `crops produced`, x = '')) + geom_boxplot()
+graph
+```
+
+We can see that most oof our data lies in the standard deviation, and the mean is represented by the black line in the box. We see that there are 3 outliers in our graph, which are shown way further away from the box.
+
+Now that we have seen that there is a linear relationship, we want ot study the effects of various factors over time. First, we want to see the changes of temperature, rainfall and CPI over time. We plot their scatter plots and the line of best fits for each of them.
+
+
+```{r}
+graph <- data %>% ggplot(aes(y = CPI_avg, x = Crop_Year, color = "CPI")) + geom_point() + geom_line() + geom_smooth(method = lm,se=F) + geom_point(mapping = aes(y = Annual_rain, x = Crop_Year,color = "Rain in cm"))+ geom_line(mapping = aes(y = Annual_rain, x = Crop_Year,color = "Rain in cm")) + geom_smooth(mapping = aes(y = Annual_rain, x = Crop_Year,color = "Rain in cm"),method = lm, se=F)
+graph
+
+graph2 <- data %>% ggplot(aes(y = `Annual temp`, x = Crop_Year, color = "temperature in C"))+ geom_point() + geom_smooth(method = lm, se = F)
+graph2
+```
+
+Thus, by the analysis of the two graphs, we see that both the CPI and the temperature have a linearly increasing relationship, aka as the time increases, they also increase. This doesn't happen for rainfall, as the line of best fit is horizontal. 
+
+However, we can't exactly compare the graphs of each of these factors with each other, as they are not on the same scale, and have differernt magnitudes. So we want to standardize the graphs so that all of them are on the same scale.
+
+We will standardize each of the factors(attributes) using this formula = Standardized value = (value - mean)/standard deviation
+https://www.statisticshowto.datasciencecentral.com/standardized-values-examples/
+
+We can find the mean and standard deviation using mean() and sd().
+
+http://www.r-tutor.com/elementary-statistics/numerical-measures/mean
+http://www.r-tutor.com/elementary-statistics/numerical-measures/standard-deviation
+
+```{r}
+
+Scaling <- data %>% 
+  summarize("mean_temp" = mean(`Annual temp`), "sd_temp" = sd(`Annual temp`),"mean_rain" = mean(`Annual_rain`), "sd_rain" = sd(`Annual_rain`),"mean_CPI" = mean(`CPI_avg`), "sd_CPI" = sd(`CPI_avg`))
+Scaled_data <- data %>%
+  mutate("Temp_scaled" = (`Annual temp` - Scaling$mean_temp)/Scaling$sd_temp) %>%
+  mutate("Rain_scaled" = (`Annual_rain` - Scaling$mean_rain)/Scaling$sd_rain) %>%
+  mutate("CPI_scaled" = (`CPI_avg` - Scaling$mean_CPI)/Scaling$sd_CPI) %>% 
+  select(-JAN_FEB_T,-`MAR-MAY_T`,-`JUN-SEP_T`, -`OCT-DEC_T`)
+Scaled_data
+
+```
+
+Now that we have all our scaled data, we will plot them on the same graph.
+```{r}
+graph <- Scaled_data %>% ggplot(aes(y = CPI_scaled, x = Crop_Year, color = "CPI")) + geom_point() +  geom_smooth(method = lm,se=F) + geom_point(mapping = aes(y = Rain_scaled, x = Crop_Year,color = "Rain in cm"))+  geom_smooth(mapping = aes(y = Rain_scaled, x = Crop_Year,color = "Rain in cm"),method = lm, se=F) + geom_point(mapping = aes(y = Temp_scaled, x = Crop_Year,color = "Temp in C"))+  geom_smooth(mapping = aes(y = Temp_scaled, x = Crop_Year,color = "Temp in C"),method = lm, se=F) + labs( y="Scaled_values")
+graph
+```
+
+Thus, now that we have scaled the data, we can compare the trends in the CPI,rainfall and temperature with one another. We can see that for the country of India, there is a linear increase in the CPI and temperature over the years, and this trend is very similar to the trend observed for crop yield over time. We see that for the line of best fit for the rainfall, this trend is not the same as the corp yield, and there isn't any increase over time. Howevr, this EDA exploration has enabled us to study the factors independently. If we were to plot this across the crop yield, we would see the graph below
+
+```{r}
+graph <- Scaled_data %>% ggplot(aes(y = CPI_scaled, x = `crops produced`, color = "CPI")) + geom_point() +  geom_smooth(method = lm,se=F) + geom_point(mapping = aes(y = Rain_scaled, x = `crops produced`,color = "Rain in cm"))+  geom_smooth(mapping = aes(y = Rain_scaled, x = `crops produced`,color = "Rain in cm"),method = lm, se=F) + geom_point(mapping = aes(y = Temp_scaled, x = `crops produced`,color = "Temp in C"))+  geom_smooth(mapping = aes(y = Temp_scaled, x = `crops produced`,color = "Temp in C"),method = lm, se=F) + labs( y="Scaled_values")
+graph
+```
+ 
+Plotting all the factors against the crop yield, we see as the CPI and temperature increase, the crop yeild also increase. However, that cannot be said for the rainfall, as it doesn't have an increasing trend as seen in the graph.
+ 
+Thus, now we can see that potentially, both temperature and CPI influence the crop yield, and the rainfall does not. However, we cannot make a guaranteed statement just yet. Thus, to determine the exact relationship, we will perform hypothesis testing and fit a linear regression model to determine the eact relationship
+
+However, before we do that, we want to check the skew of the data. Skew refers to the distribution of data around the mean. 
+Skew refers to the uneven distribution of data around the mean. 
+we can check the skew by the following ways
+1) using the formula - (75th percentile - mean)/2 - (mean -25th percentile) /2
+https://rviews.rstudio.com/2017/12/13/introduction-to-skewness/
+2) plotting a violin graph for the factors.
+https://en.wikipedia.org/wiki/Violin_plot
+
+```{r}
+Scaled_data %>% ggplot(aes(x='', y= CPI_scaled)) +
+    geom_violin() 
+```
+We can see that my data is largely skewed, as the spread of data is different around 0. So we want to reduce the skew. We can do that by taking the log of the values 
+```{r}
+Scaled_data2 <- Scaled_data %>%
+  mutate("Temp_fixed" = log10(`Annual temp`)) %>%
+  mutate("Rain_fixed" = log10(`Annual_rain`)) %>%
+  mutate("CPI_fixed" = log10(CPI_avg)) %>% 
+  select(Crop_Year,`crops produced`,Temp_fixed, Rain_fixed,CPI_fixed)
+
+
+Scaled_data2 %>% ggplot(aes(x='', y= CPI_fixed)) +
+    geom_violin() 
+
+
+```
+
+Thus, the data is still very skewed. However, it is not as skewed as before the transformation, as it now comparatively more evenly distributed on the upper half and lower half of the graph.
+
+
+##6. Hypothesis testing 
+
+Hypothesis testing refers to the use of statistics to determine the probability whether a given hypothesis is true. The hypothesis testing can be used to rule out whether Rainfall, temperature and CPI don't have a relationship w the agricultural output. 
+
+More information about the hypothesis testing can be found here (http://mathworld.wolfram.com/HypothesisTesting.html), but our main goal is to find the p.value and determine whether it's below 0.05.
+
+The P value is the probability of finding the observed when the NUll-hypothesis is true. the lower the value, the lower our chances of the null-hypothesis. 
+
+We are going to find the p-value by first fitting a linear model on our porduction value conditioned on the factors using the lm() function.
+https://www.rdocumentation.org/packages/stats/versions/3.6.0/topics/lm
+
+And then we call the tidy() function in the broom package to give us important values, one of which is the p.value. 
+
+1) Crops produced conditioned on CPI
+
+Null Hypothesis - there is no relationship between Crop output and the CPI
+Alternative Hypothesis - There is definitely a relationship between the output and the CPI.
+
+```{r}
+
+tab1 <- lm(`crops produced`~CPI_avg, data=Scaled_data)
+  tab1 %>% tidy()
+```
+ We can see that the p.value is lower than 0.05. Hence, we reject the null hypothesis and there definitely a relationship. On average, an increase in CPI by 1 leads to an increase in output by 9450244 +- 3303609 units 
+ 
+ 2) Crops produced conditioned on Temperature
+
+Null Hypothesis - there is no relationship between Crop output and the temperature
+Alternative Hypothesis - There is definitely a relationship between the output and the temperature.
+
+```{r}
+
+tab2 <- lm(`crops produced`~`Annual temp`, data=Scaled_data)
+  tab2 %>% tidy()
+```
+ We can see that the p.value is greater than 0.05. Hence, we cannot reject the null hypothesis and there is a possibility that the null hypothesis holds true.
+ 
+3) Crops produced conditioned on Rainfall
+
+Null Hypothesis - there is no relationship between Crop output and the amount of rainfall
+Alternative Hypothesis - There is definitely a relationship between the output and the rainfall.
+
+```{r}
+
+tab3 <- lm(`crops produced`~`Annual_rain`, data=Scaled_data)
+  tab3 %>% tidy()
+```
+ We can see that the p.value is greater than 0.05. Hence, we cannot reject the null hypothesis and there is a possibility that the null hypothesis holds true.
+ 
+## 7. Machine learning
+ 
+ 
+Now that we have performed the hypothesis testing for our independent factors that might affect the crop yield, we want to know how different linear models fit our data. Ideally, in the real world, we will have multiple factors that will affect the crop yield. WE want to determine which combination of these factors affected the crop yield the most, and then determine how good that linear model is. 
+
+Thus, we're gonna create multiple models, and then compare those models using the anova function.
+https://www.rdocumentation.org/packages/car/versions/3.0-2/topics/Anova
+
+```{r}
+Scaled_data
+tab4 <- lm(`crops produced`~`Annual_rain` + CPI_avg, data=Scaled_data)
+tab5 <- lm(`crops produced`~`Annual temp` + CPI_avg, data=Scaled_data)
+tab6 <- lm(`crops produced`~`Annual_rain` + `Annual temp`, data=Scaled_data)
+tab7 <-  lm(`crops produced`~`Annual_rain` + CPI_avg + `Annual temp`, data=Scaled_data)
+anova(tab1,tab2,tab3,tab4,tab5,tab6,tab7)
+
+```
+
+From this table, we can determine that the linear model used in tab7 is the best fit model. This is because the RSS value is the lowest in the last model. A residual sum of squares (RSS) is a statistical technique used to measure the amount of variance in a data set that is not explained by a regression model. The lower this value, the better the model fits.
+https://www.investopedia.com/terms/r/residual-sum-of-squares.asp
+
+Now we can analyze this model further in depth. We first call tidy() to determine the effect of the factors (CPI, Rainfall and temperature) on the output. And then we plot the residual vs fitted values scatter plot. 
+```{r}
+augmented_data <- tab7 %>%
+  augment() 
+
+tab7 %>% tidy
+
+```
+ 
+ This helps us predict how our factors affect our outputs. We can see that for temperature, our estimate is that for 1 degree change, our putput increases by 2748834002 +- 2560149938. This is because temerature changes occured in very small quantities over the year. Other values in this table show that an increase in CPI by 1 results in an increase in output by 8492172 +- 3514623 units. Similarly an increase in the rain by 1 cm will result in an output increase of 701957 +- 6280053 units. Now we want to test if our model is a good fit. We will do that by plotting residuals vs fitted values.
+ 
+```{r, message= FALSE}
+augmented_data %>%
+ggplot(aes(x=.fitted,y=.resid)) +
+    geom_point() + 
+    geom_smooth() + geom_smooth(method = lm, se = F)
+    labs(x="fitted", y="residual")
+    
+  
+```
+ 
+ We can see that our data is evenly spread around the residual value 0. Furthermore, the data does not conically increase aka move such that it spreads out as the fitted values increase. This is means the model fits well, as we want our residual vs fitted graph to look like this. While the data does curve around the 0 value, this can be accounted for the outliers taht we had in our data.
+ 
+![](C:/Users/Administrator/Desktop/RU17l.png)
+
+Now we can see the whether the model is good enough for each of our factors
+1) CPI
+```{r}
+augmented_data %>% 
+  ggplot(aes(x = CPI_avg,y=.resid)) +
+    geom_point() + 
+     geom_smooth(method = lm)
+    labs(x="CPI", y="residual")
+
+```
+2) Temperature
+```{r}
+    augmented_data %>% 
+  ggplot(aes(x = Annual.temp,fitted,y=.resid)) +
+    geom_point() + 
+     geom_smooth(method = lm)
+    labs(x="temp", y="residual")
+```
+3)  Rainfall
+```{r}
+    augmented_data %>% 
+  ggplot(aes(x = Annual_rain,fitted,y=.resid)) +
+    geom_point() + 
+     geom_smooth(method = lm)
+    labs(x="fitted", y="residual")
+```
+
+For all our factors, we can see that our graphs are spread around the 0 residual value. While some of the graphs have a slight conical shape, this can be accounted by the outliers that exist in the dataset.
+
+
+Thus, up until now, we have been able to create linear models for our factors, find the best fit model and find how rainfall, temperature and CPI affect crop yield in the country of India(given by the estimates +- standard error), and we have been able to analyze our model to determine whether it is a good fit for our data.
+
+##Summary
+
+Firstly, there are various factors that affect crop yield. Many of those factors need to be taken into account to obtain a more accurate prediction model. Secondly, certain technologies to accurately collect data, especially on such a large scale, did not exist, which could have led to inaccurate values recorded.  
+
+We can infer fromt his study set that these factors do play an important role in the agricultural output, and that while it may seem that one factor is very important(such as rainfall for water supply), it might not be the case. We can deduce from our study that the CPI has a major impact on the agricultural output, for it not only indicates the inflation in the country, but as the CPI has increased, the value of the goods has decreased leading to lower costs for farmers. Temperature also has a major impact, and minute fluctuations in the coutry of India will lead to huge changes in outputs. However, this also might affect the type fo crops farmers could grow, and further studies should take that into account. Finally, from our EDA of rainfall, it didn't seem like it had much of an effect. And with such a high p value, this might be the case. However, from our ANOVA - F testing, we saw that our Res Df. was the lowest for the linear regression model with output condiditioned on all our factors. Therefore, to summarize, the CPI and the temperature affected the agricutural yield in India the most.
+
+
+
+
+
+
+
+
